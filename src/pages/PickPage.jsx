@@ -1,0 +1,256 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getCharactersByGender, getCharacterById, getBots } from "../data/characters";
+import {
+  countByStatus,
+  getShuffledRoster,
+  getStatusTick,
+  canStartChat,
+  resolveCompanionStatus,
+  COMPANION_STATUS,
+} from "../data/companionStatus";
+import { getPreferGender, getUserGender, setUserGender } from "../data/session";
+import { getFavorites } from "../data/favorites";
+import { setMood } from "../data/moods";
+import { getUserProfile, isProfileReady, getDisplayName } from "../data/userProfile";
+import CharacterCard from "../components/CharacterCard";
+import { useI18n } from "../i18n/LanguageContext";
+import { localizeCharacter } from "../i18n/localeHelpers";
+
+export default function PickPage() {
+  const navigate = useNavigate();
+  const { t, lang } = useI18n();
+  const profile    = getUserProfile();
+  const prefer     = getPreferGender();
+  const userGender = profile.gender || getUserGender();
+  const display    = getDisplayName(profile);
+
+  const [favIds, setFavIds] = useState(() => getFavorites());
+  const [tab, setTab] = useState("foryou"); // foryou | voices | favorites
+  const [statusFilter, setStatusFilter] = useState(null); // null | available | busy | away
+  const [statusNow, setStatusNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isProfileReady()) { navigate("/profile?setup=1&next=/prefer", { replace: true }); return; }
+    if (profile.gender && !getUserGender()) setUserGender(profile.gender);
+    if (!prefer) navigate("/prefer", { replace: true });
+  }, [prefer, navigate, profile.gender]);
+
+  useEffect(() => {
+    const sync = () => setFavIds(getFavorites());
+    window.addEventListener("storage", sync);
+    const id = setInterval(sync, 800);
+    return () => { window.removeEventListener("storage", sync); clearInterval(id); };
+  }, []);
+
+  // Refresh bot busy/away + roster shuffle on the ~5 min tick
+  useEffect(() => {
+    const syncTick = () => {
+      const next = Date.now();
+      setStatusNow((prev) => {
+        if (getStatusTick(prev) === getStatusTick(next)) return prev;
+        return next;
+      });
+    };
+    const id = setInterval(syncTick, 30_000);
+    syncTick();
+    return () => clearInterval(id);
+  }, []);
+
+  // Voices = all real AI + filler bots
+  const allVoice = useMemo(() => {
+    const reals = prefer ? getCharactersByGender(prefer) : [];
+    const bots = prefer ? getBots(prefer, lang) : [];
+    return getShuffledRoster(reals, bots, statusNow);
+  }, [prefer, lang, statusNow]);
+
+  // For you = language's real AI + that language's filler bots
+  const forYou = useMemo(() => {
+    const reals = prefer ? getCharactersByGender(prefer, lang) : [];
+    const bots = prefer ? getBots(prefer, lang) : [];
+    return getShuffledRoster(reals, bots, statusNow);
+  }, [prefer, lang, statusNow]);
+
+  const favorites = useMemo(
+    () =>
+      favIds
+        .map((id) => getCharacterById(id))
+        .filter((c) => c && c.gender === prefer)
+        .map((c) => ({
+          ...c,
+          kind: c.kind || (c.isBot ? "bot" : "real"),
+          status: undefined,
+        })),
+    [favIds, prefer]
+  );
+
+  const rosterBase = useMemo(() => {
+    if (tab === "favorites") return favorites;
+    if (tab === "voices") return allVoice;
+    return forYou;
+  }, [tab, favorites, allVoice, forYou]);
+
+  const list = useMemo(() => {
+    if (!statusFilter) return rosterBase;
+    return rosterBase.filter((c) => resolveCompanionStatus(c, statusNow) === statusFilter);
+  }, [rosterBase, statusFilter, statusNow]);
+
+  const statusCounts = useMemo(
+    () => countByStatus(rosterBase, statusNow),
+    [rosterBase, statusNow]
+  );
+
+  if (!isProfileReady() || !prefer || !userGender) return null;
+
+  const label = prefer === "female" ? t("common.girl") : t("common.boy");
+  const nameSuffix = display ? `, ${display}` : "";
+
+  return (
+    <div className="min-h-screen hero-bg overflow-x-hidden">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="float-orb w-96 h-96 bg-secondary/15 -top-10 right-0 animate-pulse-slow" />
+        <div className="float-orb w-72 h-72 bg-accent/12 bottom-20 left-0 animate-pulse-slow" style={{ animationDelay: "1s" }} />
+      </div>
+
+      <div className="relative z-10 max-w-5xl mx-auto px-4 pt-[max(6rem,calc(env(safe-area-inset-top)+5rem))] pb-24">
+
+        <div className="flex items-center gap-3 mb-10 flex-wrap">
+          <button onClick={() => navigate("/prefer")}
+            className="flex items-center gap-1.5 text-muted hover:text-primary text-sm transition-colors shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            {t("pick.changePref")}
+          </button>
+          <div className="w-px h-4 bg-dark/15 shrink-0" />
+          <div className="flex items-center gap-2 bg-white/70 border border-dark/8 rounded-full px-3 py-1 shadow-sm shrink-0">
+            <span className="w-2 h-2 rounded-full bg-secondary" />
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">{t("pick.step3")}</span>
+          </div>
+          <div className="w-px h-4 bg-dark/15 shrink-0" />
+          <h1 className="font-headline text-base sm:text-lg font-extrabold text-dark shrink-0">
+            {t("pick.choose", { label, name: nameSuffix })}
+          </h1>
+          <p className="text-muted text-sm hidden sm:block">{t("pick.mixedVibesSub")}</p>
+        </div>
+
+        <div className="sticky top-16 z-20 -mx-4 px-4 py-3 mb-8"
+          style={{ background: "rgba(248,244,252,0.92)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(26,16,37,0.06)" }}>
+          <div className="flex items-center gap-2 max-w-5xl mx-auto overflow-x-auto scrollbar-none">
+            <button type="button" onClick={() => setTab("foryou")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all ${
+                tab === "foryou"
+                  ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
+                  : "bg-white text-dark border-dark/10 hover:border-primary/30"
+              }`}>
+              🎙️ {t("pick.forYou")}
+            </button>
+            <button type="button" onClick={() => setTab("voices")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all ${
+                tab === "voices"
+                  ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
+                  : "bg-white text-dark border-dark/10 hover:border-primary/30"
+              }`}>
+              ✨ {t("pick.allVoices")}
+            </button>
+            <button type="button" onClick={() => setTab("favorites")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold border transition-all ${
+                tab === "favorites" ? "bg-primary text-white border-primary" : "bg-white text-dark border-dark/10 hover:border-primary/30"
+              }`}>
+              ❤️ {t("pick.favorites")}
+            </button>
+            <div className="ml-auto flex items-center gap-1.5 text-[11px] font-semibold shrink-0">
+              <button
+                type="button"
+                onClick={() => setStatusFilter((s) => (s === COMPANION_STATUS.available ? null : COMPANION_STATUS.available))}
+                className={`px-2 py-1 rounded-full border transition-transform active:scale-95 ${
+                  statusFilter === COMPANION_STATUS.available
+                    ? "bg-green-600 text-white border-green-700 ring-2 ring-green-300"
+                    : "bg-green-500 text-white border-green-600"
+                }`}
+              >
+                {t("pick.chipFree", { count: statusCounts.available })}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter((s) => (s === COMPANION_STATUS.busy ? null : COMPANION_STATUS.busy))}
+                className={`px-2 py-1 rounded-full border transition-transform active:scale-95 ${
+                  statusFilter === COMPANION_STATUS.busy
+                    ? "bg-red-600 text-white border-red-700 ring-2 ring-red-300"
+                    : "bg-red-500 text-white border-red-600"
+                }`}
+              >
+                {t("pick.chipBusy", { count: statusCounts.busy })}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter((s) => (s === COMPANION_STATUS.away ? null : COMPANION_STATUS.away))}
+                className={`px-2 py-1 rounded-full border transition-transform active:scale-95 ${
+                  statusFilter === COMPANION_STATUS.away
+                    ? "bg-yellow-500 text-yellow-950 border-yellow-600 ring-2 ring-yellow-200"
+                    : "bg-yellow-400 text-yellow-950 border-yellow-500"
+                }`}
+              >
+                {t("pick.chipAway", { count: statusCounts.away })}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {tab === "foryou" && favorites.length > 0 && (
+          <div className="mb-10">
+            <h2 className="font-display font-bold text-dark text-sm mb-3 flex items-center gap-2">
+              <span>❤️</span> {t("pick.yourFavorites")}
+            </h2>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+              {favorites.filter((c) => canStartChat(c, statusNow)).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    if (c.vibeId) setMood(c.vibeId);
+                    navigate(`/chat/${c.id}`);
+                  }}
+                  className="flex-shrink-0 flex items-center gap-2.5 bg-white border border-primary/15 rounded-2xl pl-2 pr-4 py-2 hover:border-primary/40 hover:shadow-sm transition-all"
+                >
+                  <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-primary to-secondary">
+                    {c.image
+                      ? <img src={c.image} alt={c.name} className="w-full h-full object-cover object-top" draggable={false} />
+                      : <span className="flex h-full items-center justify-center text-lg">{c.emoji}</span>}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-display font-bold text-dark text-sm leading-tight">{c.name}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {list.length === 0 ? (
+          <div className="text-center py-20 bg-white/60 border border-primary/10 rounded-3xl">
+            <p className="text-4xl mb-4">🔍</p>
+            <p className="font-display font-bold text-dark text-lg mb-2">{t("pick.noMatches")}</p>
+            <p className="text-muted text-sm mb-6">
+              {t("pick.tryAnother", { extra: tab === "favorites" ? t("pick.favExtra") : "" })}
+            </p>
+            <button type="button" onClick={() => setTab("foryou")}
+              className="btn-glow text-white text-sm font-semibold px-6 py-3 rounded-2xl">
+              {t("pick.resetFilters")}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {list.map((character) => (
+              <CharacterCard
+                key={character.id}
+                character={localizeCharacter(character, lang, t)}
+                statusNow={statusNow}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
