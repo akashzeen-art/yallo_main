@@ -147,10 +147,6 @@ export default function CheckoutPage() {
                 className="mt-0.5 h-4 w-4 accent-[#e91e8c] shrink-0 cursor-pointer"
               />
               <span className="text-white/85 text-sm leading-snug">
-                {t("checkout.termsPrefix")}{" "}
-                <Link to="/terms" className="text-pink-200 underline hover:text-white">
-                  {t("footer.terms")}
-                </Link>{" "}
                 {t("checkout.termsAge")}
               </span>
             </label>
@@ -168,8 +164,8 @@ export default function CheckoutPage() {
             <p className="text-white/70 text-xs leading-snug">{t("checkout.afterNote")}</p>
             <p className="text-white/55 text-xs">
               {t("checkout.needHelp")}{" "}
-              <Link to="/legal" className="text-pink-200 underline hover:text-white">
-                {t("footer.contact")}
+              <Link to="/" className="text-pink-200 underline hover:text-white">
+                {t("footer.chatSupport")}
               </Link>
             </p>
           </div>

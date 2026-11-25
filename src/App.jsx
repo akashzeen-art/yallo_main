@@ -11,8 +11,6 @@ const PreferPage = lazy(() => import("./pages/PreferPage"));
 const PickPage = lazy(() => import("./pages/PickPage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
-const LegalPage = lazy(() => import("./pages/LegalPage"));
-const TermsPage = lazy(() => import("./pages/TermsPage"));
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const ChatRoomLobbyPage = lazy(() => import("./pages/ChatRoomLobbyPage"));
 const ChatRoomCreatePage = lazy(() => import("./pages/ChatRoomCreatePage"));
@@ -98,8 +96,6 @@ export default function App() {
               <Route path="/prefer" element={<><Navbar /><PreferPage /></>} />
               <Route path="/pick" element={<><Navbar /><PickPage /></>} />
               <Route path="/about" element={<><Navbar /><AboutPage /></>} />
-              <Route path="/legal" element={<><Navbar /><LegalPage /></>} />
-              <Route path="/terms" element={<><Navbar /><TermsPage /></>} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/profile" element={<><Navbar /><ProfilePage /></>} />
               <Route path="/rooms" element={<><Navbar /><ChatRoomLobbyPage /></>} />

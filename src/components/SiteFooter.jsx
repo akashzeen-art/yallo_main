@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import BrandLogo from "./BrandLogo";
-import { COMPANY } from "../data/company";
 import { useI18n } from "../i18n/LanguageContext";
 
 export default function SiteFooter() {
@@ -16,16 +15,6 @@ export default function SiteFooter() {
             <p className="text-muted text-xs leading-relaxed">
               {t("home.footerTag", { year })}
             </p>
-            <p className="text-dark/70 text-xs leading-relaxed">
-              <span className="font-semibold text-dark">{COMPANY.name}</span>
-              <br />
-              {COMPANY.addressOneLine}
-            </p>
-            <p className="text-muted text-[11px] leading-relaxed">
-              {t("footer.regLabel")}: {COMPANY.registrationNumber}
-              <span className="mx-1.5 text-dark/20">·</span>
-              {t("footer.vatLabel")}: {COMPANY.vatNumber}
-            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-8 text-xs">
@@ -39,29 +28,11 @@ export default function SiteFooter() {
               <Link to="/checkout" className="block text-muted hover:text-primary transition-colors">
                 {t("checkout.navLabel")}
               </Link>
-              <Link to="/legal" className="block text-muted hover:text-primary transition-colors">
-                {t("footer.legal")}
-              </Link>
-              <Link to="/terms" className="block text-muted hover:text-primary transition-colors">
-                {t("footer.terms")}
-              </Link>
             </div>
             <div className="space-y-2">
               <p className="font-bold text-dark/50 uppercase tracking-[0.14em] text-[10px]">
                 {t("footer.contact")}
               </p>
-              <a
-                href={`mailto:${COMPANY.email}`}
-                className="block text-muted hover:text-primary transition-colors break-all"
-              >
-                {COMPANY.email}
-              </a>
-              <a
-                href={`tel:${COMPANY.phoneHref}`}
-                className="block text-muted hover:text-primary transition-colors"
-              >
-                {COMPANY.phone}
-              </a>
               <Link to="/" className="block text-muted hover:text-primary transition-colors">
                 {t("footer.chatSupport")}
               </Link>
@@ -69,9 +40,8 @@ export default function SiteFooter() {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-dark/6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-muted">
-          <p>© {year} {COMPANY.name}. {t("footer.rights")}</p>
-          <p className="sm:text-right">{t("footer.operatedBy")}</p>
+        <div className="pt-4 border-t border-dark/6 text-[11px] text-muted">
+          <p>© {year} Yallo!. {t("footer.rights")}</p>
         </div>
       </div>
     </footer>
